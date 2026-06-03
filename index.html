@@ -72,6 +72,34 @@
             font-weight: 700;
         }
 
+        .header-link-container {
+            margin-top: 12px;
+        }
+
+        .header-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--info);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 30px;
+            background: rgba(0, 210, 252, 0.1);
+            border: 1px solid rgba(0, 210, 252, 0.3);
+            box-shadow: 0 0 10px rgba(0, 210, 252, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .header-link:hover {
+            color: #fff;
+            background: var(--info);
+            border-color: var(--info);
+            box-shadow: 0 0 15px rgba(0, 210, 252, 0.5);
+            transform: translateY(-1px);
+        }
+
         /* 齒輪後台按鈕 */
         .admin-toggle-btn {
             position: absolute;
@@ -718,6 +746,9 @@
     <header>
         <h1>🎤 媽媽的專屬點歌機 </h1>
         <p>點歌免打字，一鍵輕鬆唱</p>
+        <div class="header-link-container">
+            <a href="https://song.corp.com.tw/" target="_blank" class="header-link">🔍 台灣點歌王 (查歌名/編號)</a>
+        </div>
         <button class="admin-toggle-btn" onclick="toggleAdminModal()" title="進入歌曲庫管理">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
