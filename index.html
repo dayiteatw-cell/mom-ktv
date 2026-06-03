@@ -570,7 +570,7 @@
             font-size: 0.95rem;
         }
 
-        .preview-item .ip-num { width: 90px; }
+        .preview-item .ip-num { width: 180px; }
         .preview-item .ip-singer { width: 120px; }
         .preview-item .ip-title { flex-grow: 1; min-width: 150px; }
         .preview-item .ip-url { width: 100%; font-size: 0.85rem; opacity: 0.7; }
@@ -761,6 +761,8 @@
             <button class="filter-tab active" onclick="filterCategory('全部')">全部歌曲</button>
             <button class="filter-tab" onclick="filterCategory('金')">金嗓伴唱 (金)</button>
             <button class="filter-tab" onclick="filterCategory('音')">音圓伴唱 (音)</button>
+            <button class="filter-tab" onclick="filterCategory('弘')">弘音伴唱 (弘)</button>
+            <button class="filter-tab" onclick="filterCategory('投')">投幣伴唱 (投)</button>
             <button class="filter-tab" onclick="filterCategory('無')">其他/無編號</button>
         </div>
         <div class="sort-container">
@@ -796,8 +798,8 @@
             <h3>📱 1. 批量貼入 LINE 聊天紀錄</h3>
             <p>你可以直接複製媽媽傳給你的 LINE 訊息貼在下面！解析器會**自動把「YouTube網址」和相近的「編號與備註」配對**。</p>
             <textarea class="line-textarea" id="lineInput" placeholder="範例：
-22:36 王林碧霞 https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
-22:36 王林碧霞 金29763老歌要練"></textarea>
+https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
+金嗓29763老歌要練"></textarea>
             <button class="admin-btn" onclick="parseAndPreviewLineInput()">⚡ 智能解析聊天紀錄</button>
             
             <!-- 解析結果預覽編輯區 -->
@@ -823,18 +825,33 @@
             </div>
         </div>
 
-        <!-- 歌曲庫維護 -->
+        <!-- 歌曲庫維護與備份 -->
         <div class="admin-section">
-            <h3>📋 3. 目前歌曲庫統計與匯出</h3>
+            <h3>📋 3. 目前歌曲庫統計與備份</h3>
             <p>目前點歌機中共有 <strong id="totalSongsCount" style="color: var(--accent);">0</strong> 首歌曲。</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                <button class="admin-btn" onclick="exportSongsJson()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">📥 匯出歌單 JSON 檔</button>
+                <button class="admin-btn" onclick="triggerImportClick()" style="background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white;">📤 匯入歌單 JSON 檔</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importSongsJson(event)">
+            </div>
             <p>如果你滿意目前的歌單，可以<strong>複製下方的代碼</strong>，直接替換程式碼中的 `DEFAULT_SONGS`，這樣下次在任何新裝置打開就都有預設歌單囉！</p>
             <button class="admin-btn" onclick="copyDatabaseJsCode()">📋 點擊複製最新歌曲代碼</button>
             <textarea class="export-code-box" id="exportCodeContainer" readonly></textarea>
         </div>
 
+        <!-- 一鍵同步至 GitHub (僅伺服器模式下顯示) -->
+        <div class="admin-section" id="gitSyncSection" style="display: none;">
+            <h3>☁️ 4. 一鍵同步至 GitHub Pages</h3>
+            <p>將目前最新的歌單寫回本機 `index.html`，並自動執行 `git push` 上傳至 GitHub Pages（約 1 分鐘後生效）。</p>
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <button class="admin-btn" id="gitSyncBtn" onclick="syncToGithub()" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); color: white;">⚡ 一鍵同步至 GitHub Pages</button>
+                <span id="gitSyncStatus" style="font-weight: bold; font-size: 0.95rem;"></span>
+            </div>
+        </div>
+
         <!-- 重設與清除資料 -->
         <div class="admin-section" style="border-color: rgba(255, 71, 87, 0.3);">
-            <h3 style="color: var(--primary);">⚠️ 4. 危險區域</h3>
+            <h3 style="color: var(--primary);">⚠️ 5. 危險區域</h3>
             <p>點擊下方按鈕將清除所有在手機上自行匯入的歌曲，並恢復為初始預設值。</p>
             <button class="admin-btn danger" onclick="resetDatabaseToDefault()">🚨 恢復初始預設歌單</button>
         </div>
@@ -847,32 +864,874 @@
         // ==========================================
         // 初始預設歌單 (可以把常用歌單寫死在這裡)
         // ==========================================
+        // BEGIN_DEFAULT_SONGS
         const DEFAULT_SONGS = [
-            {
-                title: "老歌要練",
-                singer: "王林碧霞",
-                number: "金29763",
-                youtubeUrl: "https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9"
-            },
-            {
-                title: "家後",
-                singer: "江蕙",
-                number: "金12345",
-                youtubeUrl: "https://youtu.be/dQw4w9WgXcQ" // 示範用，之後可換成真正的伴唱連結
-            },
-            {
-                title: "愛拼才會贏",
-                singer: "葉啟田",
-                number: "音33221",
-                youtubeUrl: "https://youtu.be/dQw4w9WgXcQ"
-            },
-            {
-                title: "雙人枕頭",
-                singer: "陳雷/陳盈潔",
-                number: "金54321",
-                youtubeUrl: "https://youtu.be/dQw4w9WgXcQ"
-            }
-        ];
+        {
+                "title": "夢中思慕的人",
+                "singer": "張秀卿",
+                "number": "金29763",
+                "youtubeUrl": "https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9"
+        },
+        {
+                "title": "放伊飛",
+                "singer": "張蓉蓉",
+                "number": "弘音96008",
+                "youtubeUrl": "https://youtu.be/F582D8GY56E?si=KFWwFjQQgJ4phdLM"
+        },
+        {
+                "title": "東港的戀歌",
+                "singer": "謝惠米",
+                "number": "金嗓23906",
+                "youtubeUrl": "https://youtu.be/Wc0ynQqcDMA?si=pSGJU3HF0GejMhL-"
+        },
+        {
+                "title": "幸福之戀",
+                "singer": "龍千玉",
+                "number": "弘音96453",
+                "youtubeUrl": "https://youtu.be/Vx1CjVaA5Gw?si=gWk6II3kRlvpoka6"
+        },
+        {
+                "title": "出賣愛情",
+                "singer": "唐儷",
+                "number": "弘音98625",
+                "youtubeUrl": "https://youtu.be/iYqmvDxVgQE?si=QhKn4rxP8A__7PDw"
+        },
+        {
+                "title": "思鄉的出外人",
+                "singer": "張蓉蓉",
+                "number": "金嗓47244",
+                "youtubeUrl": "https://youtu.be/D2nBCUR6DqM?si=Z9zL1ZajJ6_21IrP"
+        },
+        {
+                "title": "思鄉的出外人",
+                "singer": "七郎",
+                "number": "弘88044",
+                "youtubeUrl": "https://youtu.be/M5wWcduEGUQ?si=mHlyJ85iLj9ZP_n-"
+        },
+        {
+                "title": "思鄉情影",
+                "singer": "七郎",
+                "number": "金04953+95103 (讚)",
+                "youtubeUrl": "https://youtu.be/MLo5WT2FL3A?si=clvHS2t7iwq9VN8m"
+        },
+        {
+                "title": "熱情的歌聲",
+                "singer": "陳大元",
+                "number": "金95661+54376",
+                "youtubeUrl": "https://youtu.be/XTt9_ddVD-E?si=dPJGCLGEMiLP97fX"
+        },
+        {
+                "title": "感情到這煞",
+                "singer": "陳大元",
+                "number": "金投幣23907",
+                "youtubeUrl": "https://youtu.be/70Fcul1E4Jw?si=uP3iCNDgHzcK9Fcv"
+        },
+        {
+                "title": "結果",
+                "singer": "張蓉蓉",
+                "number": "弘音96006",
+                "youtubeUrl": "https://youtu.be/i6KlUhyuAZw?si=2K_AkW06TPIoboxD"
+        },
+        {
+                "title": "中秋十五暝",
+                "singer": "陳大元",
+                "number": "金99434 (投05835)",
+                "youtubeUrl": "https://youtu.be/Gc5-SPerAP0?si=ilbtiCLdxRcma3IQ"
+        },
+        {
+                "title": "愛到才知痛",
+                "singer": "黃乙玲",
+                "number": "弘音86596",
+                "youtubeUrl": "https://youtu.be/1G-0HRUnhN0?si=BySw0TOcBrKeFc18"
+        },
+        {
+                "title": "一切攏順利",
+                "singer": "張蓉蓉",
+                "number": "金嗓58055",
+                "youtubeUrl": "https://youtu.be/8--DWfq7NGo?si=tCSLvJdS79GsKq-k"
+        },
+        {
+                "title": "夢中的花蕊",
+                "singer": "陳大元",
+                "number": "金弘28422",
+                "youtubeUrl": "https://youtu.be/I0AnPSCOpyY?si=o_jH2mqTeMJ1NWoo"
+        },
+        {
+                "title": "思念的夢",
+                "singer": "喬幼",
+                "number": "弘音97040",
+                "youtubeUrl": "https://youtu.be/lTYMpS_IBLw?si=ii9JK120rLZI_YO2"
+        },
+        {
+                "title": "望月想你",
+                "singer": "蔡小虎",
+                "number": "弘音87604",
+                "youtubeUrl": "https://youtu.be/cRXK00jeSk4?si=LWIgpweRR9ELoIbC"
+        },
+        {
+                "title": "一夜暝",
+                "singer": "七郎",
+                "number": "弘89235 (特別學)",
+                "youtubeUrl": "https://youtu.be/F7lBRNU_ZbY?si=McyWBo8kgiRFo1Td"
+        },
+        {
+                "title": "感情行錯路",
+                "singer": "唐儷",
+                "number": "弘98053 (投05566)",
+                "youtubeUrl": "https://youtu.be/et6TLrl0mNQ?si=IVegJ7YsnJdf2heq"
+        },
+        {
+                "title": "沒法度",
+                "singer": "謝惠米",
+                "number": "金弘48734",
+                "youtubeUrl": "https://youtu.be/9APM523dcm0?si=4cbywnzzrT1QxfBI"
+        },
+        {
+                "title": "望酒解脫一切",
+                "singer": "黃乙玲",
+                "number": "弘音86176",
+                "youtubeUrl": "https://youtu.be/Bn1pWnUKids?si=BwayLo4zK9nNG7qG"
+        },
+        {
+                "title": "夢難留",
+                "singer": "櫻花姊妹",
+                "number": "國語77077",
+                "youtubeUrl": "https://youtu.be/4cwMYQBsRX0?si=V0lPuiF9iYWfuXHN"
+        },
+        {
+                "title": "望無你回頭",
+                "singer": "唐儷",
+                "number": "金家庭80602",
+                "youtubeUrl": "https://youtu.be/BmpnIqXnsfw?si=ekbm14z1mUKHyULD"
+        },
+        {
+                "title": "情路看破",
+                "singer": "張蓉蓉",
+                "number": "弘音98536",
+                "youtubeUrl": "https://youtu.be/--84lsreV_M?si=2iHNDTkONumrnybV"
+        },
+        {
+                "title": "你甘知傳唱",
+                "singer": "陳大元",
+                "number": "投幣96211",
+                "youtubeUrl": "https://youtu.be/w3jBGaqlAoA?si=45HX63Et69ARLD_G"
+        },
+        {
+                "title": "失戀的滋味",
+                "singer": "陳大元",
+                "number": "投幣05759",
+                "youtubeUrl": "https://youtu.be/OD0JQtIC3_Y?si=QYkxwyF4Qp1DoiAx"
+        },
+        {
+                "title": "我是行船人",
+                "singer": "陳大元",
+                "number": "弘20368 (文夏的)",
+                "youtubeUrl": "https://youtu.be/korZhn79Dw4?si=bLW3uH185VkSJXMG"
+        },
+        {
+                "title": "心肝亂糟糟",
+                "singer": "黃乙玲",
+                "number": "弘音86218",
+                "youtubeUrl": "https://youtu.be/uvauuIW3MKs?si=xRPhQEfF1M0kHvnG"
+        },
+        {
+                "title": "吃醋",
+                "singer": "七郎",
+                "number": "弘音48566",
+                "youtubeUrl": "https://youtu.be/Ee8rp6chp78?si=LsgZ40LgVhiySsEy"
+        },
+        {
+                "title": "貪戀的酒",
+                "singer": "陳大元",
+                "number": "弘音97958",
+                "youtubeUrl": "https://youtu.be/Emzf26-AJjI?si=HXvMfkkl_iBlOA4I"
+        },
+        {
+                "title": "異鄉愁",
+                "singer": "陳大元",
+                "number": "金05417+94671",
+                "youtubeUrl": "https://youtu.be/HQd5dLN1aAM?si=xfSYLVA2pCWk9ICI"
+        },
+        {
+                "title": "爽快乾一杯",
+                "singer": "謝桂珍",
+                "number": "弘87871 (比較特別)",
+                "youtubeUrl": "https://youtu.be/kVheAGFetzU?si=R3wUxk6zEYx7KSbP"
+        },
+        {
+                "title": "新櫻花戀",
+                "singer": "陳大元",
+                "number": "投幣05445 (好)",
+                "youtubeUrl": "https://youtu.be/pHb0HQuzBSg?si=94o2Aj911qAGgjtQ"
+        },
+        {
+                "title": "再會啦心愛的人",
+                "singer": "楊靜",
+                "number": "弘音97754",
+                "youtubeUrl": "https://youtu.be/J7RHyW4mvO0?si=aoW-G9Ip_94k1G7Y"
+        },
+        {
+                "title": "追求幸福",
+                "singer": "向蕙玲",
+                "number": "弘98628 (金60075)",
+                "youtubeUrl": "https://youtu.be/sgrTR9bOTH8?si=pvCf3meTpNqcQS4s"
+        },
+        {
+                "title": "思念都市的愛人",
+                "singer": "山川",
+                "number": "金96287+21565",
+                "youtubeUrl": "https://youtu.be/cT4bxj9H0Cc?si=jaiWtqU34mFsw1b0"
+        },
+        {
+                "title": "淡水河邊情深深",
+                "singer": "阿茹",
+                "number": "投幣05530",
+                "youtubeUrl": "https://youtu.be/4b5DOp-05Jw?si=uQc07Unt9hyu8wXY"
+        },
+        {
+                "title": "懷春曲",
+                "singer": "江蕙",
+                "number": "弘音88560",
+                "youtubeUrl": "https://youtu.be/vu4gbOSQc1U?si=wuEDl604iNRzreqB"
+        },
+        {
+                "title": "黃昏思鄉",
+                "singer": "江蕙",
+                "number": "弘音88759",
+                "youtubeUrl": "https://youtu.be/7jc6mQfQ0t0?si=IJJmg9oMftaVZCoA"
+        },
+        {
+                "title": "無情人斷情絲",
+                "singer": "陳大元",
+                "number": "音圓451608 (讚)",
+                "youtubeUrl": "https://youtu.be/7NXYWjsIfMA?si=37NJYeZ56OGCP_7M"
+        },
+        {
+                "title": "內山姑娘真無情",
+                "singer": "葉啟田",
+                "number": "金94157+43519",
+                "youtubeUrl": "https://youtu.be/MRsqgZriUcE?si=NKB8C2UoO2kS9sde"
+        },
+        {
+                "title": "洒醉叫著你的名",
+                "singer": "唐飛",
+                "number": "金94280+49246",
+                "youtubeUrl": "https://youtu.be/BVnQW4p4AoQ?si=IbfgjRPnT9g6UDPT"
+        },
+        {
+                "title": "懷念的城市",
+                "singer": "洪一峰",
+                "number": "金94280+49246",
+                "youtubeUrl": "https://youtu.be/iz2TxhKicvU?si=Gi8aljgIVJnt-OvJ"
+        },
+        {
+                "title": "悲戀的勃魯斯",
+                "singer": "群星",
+                "number": "金弘24040 (老歌)",
+                "youtubeUrl": "https://youtu.be/Mi0ok67W--E?si=dL1VanKeaDfFvcsX"
+        },
+        {
+                "title": "春天的風",
+                "singer": "張蓉蓉",
+                "number": "弘音97508",
+                "youtubeUrl": "https://youtu.be/X022NDpVl60?si=NY9hkumiHxYQuyyV"
+        },
+        {
+                "title": "淚雨",
+                "singer": "志峰",
+                "number": "金90332",
+                "youtubeUrl": "https://youtu.be/2g-7rmB_C5Y?si=4x868J1OPN4Ga2If"
+        },
+        {
+                "title": "冬風",
+                "singer": "劉信明",
+                "number": "金90091+29953 (日)",
+                "youtubeUrl": "https://youtu.be/hgH8TphqTcU?si=BN6D5LOTkaQGj76G"
+        },
+        {
+                "title": "愛情路",
+                "singer": "張蓉蓉",
+                "number": "弘音96255",
+                "youtubeUrl": "https://youtu.be/hYcSAJVKWZ0?si=K2pif5mOwMItTy7J"
+        },
+        {
+                "title": "心刻雙人的名",
+                "singer": "陳大元",
+                "number": "金98497+43914",
+                "youtubeUrl": "https://youtu.be/EVomGqPi_e8?si=Ej4qW0ckHxcaGL6b"
+        },
+        {
+                "title": "軟心",
+                "singer": "麗小花",
+                "number": "弘音99072 (要學)",
+                "youtubeUrl": "https://youtu.be/H3T-d6GT_fw?si=1nDqV0xyl1TrBDMi"
+        },
+        {
+                "title": "思念故鄉心愛的人",
+                "singer": "黃三元",
+                "number": "金弘21170 (老舊)",
+                "youtubeUrl": "https://youtu.be/QeU0O-XVfjs?si=dvTx9_Kpse4DMqfL"
+        },
+        {
+                "title": "紅顏女人花",
+                "singer": "一綾",
+                "number": "弘音98429",
+                "youtubeUrl": "https://youtu.be/Bj-ozMk_Vro?si=RFdTfF329MSUG8Eq"
+        },
+        {
+                "title": "一領鴛鴦被",
+                "singer": "陳雷",
+                "number": "金嗓90121",
+                "youtubeUrl": "https://youtu.be/v_jUoUFMCe4?si=DdH0w6xrBePXt6rl"
+        },
+        {
+                "title": "春天",
+                "singer": "陳大元",
+                "number": "金54028 (弘28694)",
+                "youtubeUrl": "https://youtu.be/iIIFdrty_BQ?si=X4gXWdF-JAepzN8r"
+        },
+        {
+                "title": "雨水恰恰",
+                "singer": "街藝演唱",
+                "number": "弘99117 (比較特別)",
+                "youtubeUrl": "https://youtu.be/xe6Bu14BcvA?si=3ce_tnO4gCOpn65j"
+        },
+        {
+                "title": "思念的人",
+                "singer": "林姍",
+                "number": "弘音97271",
+                "youtubeUrl": "https://youtu.be/2KwgcOqsSiw?si=fTEeNXGWqiuSit2f"
+        },
+        {
+                "title": "鴛鴦情",
+                "singer": "唐儷",
+                "number": "弘音97288",
+                "youtubeUrl": "https://youtu.be/Uy0_DYQy3T8?si=UmFi_FIXno3gQZbn"
+        },
+        {
+                "title": "可愛的歌聲",
+                "singer": "古玲",
+                "number": "金嗓06445",
+                "youtubeUrl": "https://youtu.be/u77J0vfrgOg?si=ksIKCvWtR-LVYn5M"
+        },
+        {
+                "title": "癡情只為你",
+                "singer": "陳雷",
+                "number": "金嗓60105",
+                "youtubeUrl": "https://youtu.be/pRC71PmNsDw?si=dz2tMJRWFLSBB8L9"
+        },
+        {
+                "title": "愛愈深心愈痛",
+                "singer": "陳雷",
+                "number": "投幣37995",
+                "youtubeUrl": "https://youtu.be/SfTOvbwewSI?si=xTmLg_YONvAAm2No"
+        },
+        {
+                "title": "夜風",
+                "singer": "陳祈信",
+                "number": "弘音99306",
+                "youtubeUrl": "https://youtu.be/y7imDL7p7pI?si=w-TwgApwsjKOY5pZ"
+        },
+        {
+                "title": "淚和雨",
+                "singer": "廖婉君",
+                "number": "弘音98784",
+                "youtubeUrl": "https://youtu.be/NvqRbUOWrdM?si=XQIWVOfIFF_i0DCR"
+        },
+        {
+                "title": "舊籤詩",
+                "singer": "林良歡",
+                "number": "弘音97362",
+                "youtubeUrl": "https://youtu.be/sTZRBpbfSXE?si=qxJRElg6Y4fURrqb"
+        },
+        {
+                "title": "惜福",
+                "singer": "蔡秋鳳",
+                "number": "弘音87182",
+                "youtubeUrl": "https://youtu.be/FSN1q_a4soQ?si=jUsYSoihsodcKRr8"
+        },
+        {
+                "title": "你是無情的人",
+                "singer": "許志豪",
+                "number": "弘86515",
+                "youtubeUrl": "https://youtu.be/GWLS5PWVKGQ?si=9R7fGq9c6oCWxp1P"
+        },
+        {
+                "title": "傷心固定人",
+                "singer": "王江發",
+                "number": "金97690+07749",
+                "youtubeUrl": "https://youtu.be/Q9WB-tY4dsY?si=Ry7EaSHxUlMxlsRV"
+        },
+        {
+                "title": "望月問天星",
+                "singer": "袁小迪",
+                "number": "弘音97924",
+                "youtubeUrl": "https://youtu.be/AFGnH4SGxf8?si=Y98hDk0n0ajxiyt3"
+        },
+        {
+                "title": "有緣再相會",
+                "singer": "陳明仁",
+                "number": "金25671 (陳明仁的)",
+                "youtubeUrl": "https://youtu.be/-UAXzohipJM?si=_S5iyYnGmg5DH6EU"
+        },
+        {
+                "title": "母親你在何方",
+                "singer": "千百惠",
+                "number": "金嗓55063(國語)",
+                "youtubeUrl": "https://youtu.be/xqpIEVsvCLw?si=p7EhEF6sLBFO8HFj"
+        },
+        {
+                "title": "有緣來相會",
+                "singer": "陳昜羊",
+                "number": "金嗓25671 (陳明仁)",
+                "youtubeUrl": "https://youtu.be/WsW2ef-MW08?si=C5UFjvgZ8agJAqU7"
+        },
+        {
+                "title": "誓言",
+                "singer": "甄妮",
+                "number": "弘音81915(國語)",
+                "youtubeUrl": "https://youtu.be/geIooyogI6k?si=DGPO9Is0nAoKZhfz"
+        },
+        {
+                "title": "相思",
+                "singer": "陳大元",
+                "number": "金嗓54406",
+                "youtubeUrl": "https://youtu.be/qK34Lyfg6Mg?si=Fxwtx14NxeTX30cB"
+        },
+        {
+                "title": "送你一句話",
+                "singer": "張蓉蓉",
+                "number": "弘音97132 (特別)",
+                "youtubeUrl": "https://youtu.be/E8hDvMj0Sls?si=JnjgriBM-K_7sDjc"
+        },
+        {
+                "title": "秋風落葉",
+                "singer": "于櫻櫻",
+                "number": "弘音88535",
+                "youtubeUrl": "https://youtu.be/i1lhEI2BjL8?si=tFqqYMM0HPYJbaXy"
+        },
+        {
+                "title": "鴛鴦淚",
+                "singer": "林 姍",
+                "number": "弘音97485",
+                "youtubeUrl": "https://youtu.be/3M0noktbpis?si=cyRSrUdNGw5qYaRI"
+        },
+        {
+                "title": "思念的心晟",
+                "singer": "吳蕙君",
+                "number": "投幣05360",
+                "youtubeUrl": "https://youtu.be/2sbhhaMpjXk?si=kj_VY-cCBNgYdnKQ"
+        },
+        {
+                "title": "他鄉思念的暗暝",
+                "singer": "丁千洲",
+                "number": "金96143+04473",
+                "youtubeUrl": "https://youtu.be/7tzuGMgDiLw?si=i09ejDHPvcAF-Jbh"
+        },
+        {
+                "title": "何必苦",
+                "singer": "陳大元",
+                "number": "金弘54134",
+                "youtubeUrl": "https://youtu.be/6yBCZnKNTEE?si=GwwssC2tsM88yQis"
+        },
+        {
+                "title": "癡情了憨工",
+                "singer": "方瑞娥",
+                "number": "弘音98561",
+                "youtubeUrl": "https://youtu.be/2mU22fOZJfQ?si=MjjVkHxVSxqwMvaZ"
+        },
+        {
+                "title": "追分車站",
+                "singer": "林姍",
+                "number": "弘音99350 (特別)",
+                "youtubeUrl": "https://youtu.be/-laWz7wzEU4?si=74nLOlxZ0cHprygB"
+        },
+        {
+                "title": "約會啦",
+                "singer": "張蓉蓉",
+                "number": "弘音98121 (特別)",
+                "youtubeUrl": "https://youtu.be/l4GQcDAfh18?si=a4sH6zjxyRgiViDr"
+        },
+        {
+                "title": "用心愛過",
+                "singer": "鄭琡馨",
+                "number": "投幣24334",
+                "youtubeUrl": "https://youtu.be/T7Vx2389vis?si=JdnUUGT7jATna6KE"
+        },
+        {
+                "title": "心甘還有我",
+                "singer": "談詩玲",
+                "number": "弘音98045",
+                "youtubeUrl": "https://youtu.be/5tcSuoMP2xQ?si=Uy2LSZnRjvGpwxsm"
+        },
+        {
+                "title": "經過ㄧ年後",
+                "singer": "薩克斯風演奏 /吳明秋",
+                "number": "金嗓29515 (要學)",
+                "youtubeUrl": "https://youtu.be/vhxctq0eajM?si=BqqlRxSNnfpzTgiw"
+        },
+        {
+                "title": "醉歸暝",
+                "singer": "陳盈潔",
+                "number": "弘音86601",
+                "youtubeUrl": "https://youtu.be/AeXVeSeJ3_U?si=M4vFhRTh-cIRBHd0"
+        },
+        {
+                "title": "有夢一路陪",
+                "singer": "談詩玲",
+                "number": "弘音98544",
+                "youtubeUrl": "https://youtu.be/aJyg_zvxsSU?si=4oX9V8qzJ3cnknVB"
+        },
+        {
+                "title": "堅強的玫瑰",
+                "singer": "陳大元",
+                "number": "金嗓54259 (傑米)",
+                "youtubeUrl": "https://youtu.be/PukZhRrgk4Y?si=WcQrxxC_yYCXjMw_"
+        },
+        {
+                "title": "流浪的樂師",
+                "singer": "陳大元",
+                "number": "金弘21495 (ok)",
+                "youtubeUrl": "https://youtu.be/Vr_Hgr0eklE?si=yynVW1BKsNaAHyMW"
+        },
+        {
+                "title": "問緣份",
+                "singer": "陳淑萍",
+                "number": "弘音97996",
+                "youtubeUrl": "https://youtu.be/CjoLvkZkQpY?si=oa6spEW-r1w6ha9J"
+        },
+        {
+                "title": "檸檬花",
+                "singer": "陳秀美",
+                "number": "金78098 (投幣也是)",
+                "youtubeUrl": "https://youtu.be/bhLIc6ZXx6M?si=tpmeA5UnDk-hipcx"
+        },
+        {
+                "title": "美夢變成空",
+                "singer": "謝宜君",
+                "number": "弘音88811+96711 (*)",
+                "youtubeUrl": "https://youtu.be/A-oGWkWu9tE?si=NZAX_f1NzYgNE6vo"
+        },
+        {
+                "title": "三國誌",
+                "singer": "黃思婷",
+                "number": "弘88413 (古時代的)",
+                "youtubeUrl": "https://youtu.be/QJBZ2zCqFXk?si=0Ha-NMmSy2MIgQy2"
+        },
+        {
+                "title": "純情的花蕊",
+                "singer": "林湘楹",
+                "number": "金43676+98396",
+                "youtubeUrl": "https://youtu.be/ed_xeXjK1QM?si=SNtg5iDVR73VOyrG"
+        },
+        {
+                "title": "失落的情收不回",
+                "singer": "詹雅雯",
+                "number": "弘音22129",
+                "youtubeUrl": "https://youtu.be/KCY-Qj2ymTI?si=vZdCzCDwF90ggcHI"
+        },
+        {
+                "title": "女人的心肝﹝卡拉版﹞",
+                "singer": "方瑞娥",
+                "number": "金嗓44718 (好)",
+                "youtubeUrl": "https://youtu.be/h6uTspjpgAc?si=dhtOXplFMRwAwxWw"
+        },
+        {
+                "title": "女人的世界",
+                "singer": "黃彩甄",
+                "number": "金24960 (黃彩甄讚)",
+                "youtubeUrl": "https://youtu.be/Hax0v-8ez3Q?si=WKEsBrrGj41bMKFp"
+        },
+        {
+                "title": "牽你的手到永遠",
+                "singer": "鄧妙華",
+                "number": "金嗓44346 (好讚)",
+                "youtubeUrl": "https://youtu.be/BeD6Ic3gBE8?si=6mBcBKP6j_SIXQ9e"
+        },
+        {
+                "title": "酒後的嘩聲",
+                "singer": "群星",
+                "number": "金嗓49243",
+                "youtubeUrl": "https://youtu.be/_biGmUU8RnA?si=JNP0Y6vNuF1M7mgj"
+        },
+        {
+                "title": "純情的少女",
+                "singer": "方瑞娥",
+                "number": "金弘21090 (老舊)",
+                "youtubeUrl": "https://youtu.be/Ac-jbTxqBKE?si=ifpOsMOaedzzd4l4"
+        },
+        {
+                "title": "港邊等愛人",
+                "singer": "海蘭",
+                "number": "金嗓51883 (老歌)",
+                "youtubeUrl": "https://youtu.be/417LoiTlgrQ?si=RzxfNyZ550OV4QdS"
+        },
+        {
+                "title": "摸心肝想看覓",
+                "singer": "黃乙玲",
+                "number": "弘音86188 (ok)",
+                "youtubeUrl": "https://youtu.be/G2Z9TuH1cig?si=QPGHTlU1kuSKURlM"
+        },
+        {
+                "title": "心甘還有我",
+                "singer": "談詩玲",
+                "number": "弘音98045 (好聽)",
+                "youtubeUrl": "https://youtu.be/5tcSuoMP2xQ?si=jczoLi_MeXGSQdMA"
+        },
+        {
+                "title": "為你心醉﹝卡拉版﹞",
+                "singer": "方瑞娥",
+                "number": "弘音88578",
+                "youtubeUrl": "https://youtu.be/c1JutPKFnSA?si=gGz75v7txZronMJ_"
+        },
+        {
+                "title": "三更夢",
+                "singer": "邱賢桂",
+                "number": "弘音98498 (ok)",
+                "youtubeUrl": "https://youtu.be/ARYcCzgfmiE?si=auovzujUDlvg1b1u"
+        },
+        {
+                "title": "濛霧淡水河邊",
+                "singer": "陳大元",
+                "number": "投幣05573 (好唱)",
+                "youtubeUrl": "https://youtu.be/6wIK20THHgI?si=hJfXPey1oXDlCjjG"
+        },
+        {
+                "title": "夢妳在三更",
+                "singer": "蔡小虎",
+                "number": "弘音97171",
+                "youtubeUrl": "https://youtu.be/Khp5M4B618k?si=yFBGhDlsZBH0ril7"
+        },
+        {
+                "title": "永遠來做堆",
+                "singer": "陳大元",
+                "number": "投幣05185",
+                "youtubeUrl": "https://youtu.be/cBaNcMd7IGg?si=S3UiDGsYUXPFIUgH"
+        },
+        {
+                "title": "相思暝",
+                "singer": "蔡宜汝",
+                "number": "弘音99052 (好聽)",
+                "youtubeUrl": "https://youtu.be/RrudVQi0ZWg?si=CvTFLcPAhneMQOGj"
+        },
+        {
+                "title": "港邊戀情",
+                "singer": "陳大元",
+                "number": "投幣05704 (好)",
+                "youtubeUrl": "https://youtu.be/wrsx_YfINaE?si=AtQOR2wBA_D8EZyd"
+        },
+        {
+                "title": "真情難忘",
+                "singer": "張凱婷",
+                "number": "弘音29847",
+                "youtubeUrl": "https://youtu.be/EadIdEed0i4?si=LvbhQ6ptPxyetuFc"
+        },
+        {
+                "title": "高鐵上北尾班車",
+                "singer": "上明",
+                "number": "弘音97046 (好唱)",
+                "youtubeUrl": "https://youtu.be/nuAPgSDrG9A?si=as-EbcRo-RN0QXPp"
+        },
+        {
+                "title": "你不孤單",
+                "singer": "龍千玉",
+                "number": "弘音97465 (要特學)",
+                "youtubeUrl": "https://youtu.be/A0qQyTHBhqg?si=igBky4N4rRYXx7-h"
+        },
+        {
+                "title": "一心只有你",
+                "singer": "鄔兆邦",
+                "number": "弘音98297 (看一下)",
+                "youtubeUrl": "https://youtu.be/TE8P5HHcf2A?si=IbmNJgSRLO6-U3fF"
+        },
+        {
+                "title": "追分車站",
+                "singer": "林姍",
+                "number": "弘音99350 (好唱可)",
+                "youtubeUrl": "https://youtu.be/-laWz7wzEU4?si=ClveK-ZByBz0kNqE"
+        },
+        {
+                "title": "女人也有夢",
+                "singer": "林琇琪",
+                "number": "新歌95034 (紅歌星)",
+                "youtubeUrl": "https://youtu.be/n3luR3ESX0U?si=Zr1sMoHfxg7TUDTR"
+        },
+        {
+                "title": "幸福的車班",
+                "singer": "謝宜君",
+                "number": "弘音98794 (好)",
+                "youtubeUrl": "https://youtu.be/Oxi-wQWlJWU?si=2R6QAlnt0dmjKG50"
+        },
+        {
+                "title": "你曾經愛過我",
+                "singer": "詹雅雯",
+                "number": "弘音88451",
+                "youtubeUrl": "https://youtu.be/tAIlR9-H2jg?si=Mm5Cgsq2FO7pewCm"
+        },
+        {
+                "title": "夢醒變成空",
+                "singer": "方怡萍",
+                "number": "弘音96894 (好特)",
+                "youtubeUrl": "https://youtu.be/lZbDdmKZmVI?si=IbBYbIQvLrjmYFKu"
+        },
+        {
+                "title": "命中註定我愛你",
+                "singer": "喬幼",
+                "number": "弘音98509 (好可)",
+                "youtubeUrl": "https://youtu.be/pdGSsk4RRF4?si=Wpy8p1NQX--vYP9R"
+        },
+        {
+                "title": "我心愛的人",
+                "singer": "張蓉蓉",
+                "number": "弘音96041 (好唱)",
+                "youtubeUrl": "https://youtu.be/Ih6XGUpwbok?si=QrXr9UEmAvKvYOzB"
+        },
+        {
+                "title": "借一掛風",
+                "singer": "陳隨意vs謝宜君",
+                "number": "弘99718 (好歌合唱)",
+                "youtubeUrl": "https://youtu.be/yJbxsPPUGXk?si=aWRZR1sBlxqBRqsF"
+        },
+        {
+                "title": "嫁粧",
+                "singer": "張艾莉",
+                "number": "弘86002 (林美莉讚)",
+                "youtubeUrl": "https://youtu.be/v_BWfkxtOfU?si=3DtFARdSSQHe31hQ"
+        },
+        {
+                "title": "喜酒甜茶好日子",
+                "singer": "七郎",
+                "number": "弘音86390",
+                "youtubeUrl": "https://youtu.be/lg5lT4DSdqs?si=YXNp-Pg9AZZBXgtN"
+        },
+        {
+                "title": "五福臨門",
+                "singer": "李晴",
+                "number": "弘音95110",
+                "youtubeUrl": "https://youtu.be/fXPzB7u3_M0?si=LKhTDDx1cX_X1dR-"
+        },
+        {
+                "title": "好事雙雙",
+                "singer": "楊靜",
+                "number": "弘音98399",
+                "youtubeUrl": "https://youtu.be/C1hv3Yc4GGs?si=LGRKty43PmRYBzfC"
+        },
+        {
+                "title": "為愛乾杯",
+                "singer": "蔡義德",
+                "number": "弘音99219",
+                "youtubeUrl": "https://youtu.be/BXep3mCrK7Q?si=qHn_LF4A7W361EDk"
+        },
+        {
+                "title": "心花香",
+                "singer": "謝金晶",
+                "number": "弘音98272 (好學)",
+                "youtubeUrl": "https://youtu.be/mFkSFtky7iU?si=qXT5oaVE5Dxa4KE3"
+        },
+        {
+                "title": "幸福的代誌",
+                "singer": "謝金晶",
+                "number": "弘音97747 ((OK)要學)",
+                "youtubeUrl": "https://youtu.be/Mdm1JedrJnI?si=zTE6ks4uRMcSGRys"
+        },
+        {
+                "title": "癡情香",
+                "singer": "謝宜君",
+                "number": "弘音97902 ((OK)(了解))",
+                "youtubeUrl": "https://youtu.be/u1i4M1x1EA8?si=ti0-kOdVzQvTl0e8"
+        },
+        {
+                "title": "返來作伴",
+                "singer": "楊靜",
+                "number": "弘89003 (好唱)",
+                "youtubeUrl": "https://youtu.be/o2q9pA6mlOw?si=wlxzUTCIia4GhbGo"
+        },
+        {
+                "title": "疼惜的夢",
+                "singer": "周美琴",
+                "number": "家庭69931 (好學(OK))",
+                "youtubeUrl": "https://youtu.be/qd_eibUYng0?si=1wIyAnfT4-tcVTfC"
+        },
+        {
+                "title": "月娘島有我在等你",
+                "singer": "林晏如",
+                "number": "弘音86099 (難點學)",
+                "youtubeUrl": "https://youtu.be/lamJlOFyFGM?si=cr7hg8NOBM3yVJP9"
+        },
+        {
+                "title": "愛情路",
+                "singer": "張蓉蓉",
+                "number": "弘96255 (要特學)",
+                "youtubeUrl": "https://youtu.be/hYcSAJVKWZ0?si=ekwQbPUVQ2KZ6XhV"
+        },
+        {
+                "title": "一切攏順利",
+                "singer": "張蓉蓉",
+                "number": "金嗓58055 (好歌)",
+                "youtubeUrl": "https://youtu.be/8--DWfq7NGo?si=dwbyJAADY8h398eL"
+        },
+        {
+                "title": "炮仔聲",
+                "singer": "丁姵均",
+                "number": "弘26603 (江惠的)",
+                "youtubeUrl": "https://youtu.be/aoSLUoLrmNE?si=FcswIjEcRYuV1bA_"
+        },
+        {
+                "title": "人生快樂過",
+                "singer": "玟靈",
+                "number": "弘音99354 (新歌)",
+                "youtubeUrl": "https://youtu.be/EL0YxYW57no?si=FZpacdUC5PQM0e2U"
+        },
+        {
+                "title": "愛你的心肝",
+                "singer": "丁姵均",
+                "number": "弘音97316 (不好學)",
+                "youtubeUrl": "https://youtu.be/L-IJQu9Ct1Y?si=COjRuaI29gPvpbE7"
+        },
+        {
+                "title": "愛你的心肝",
+                "singer": "黃小菁",
+                "number": "弘97316 (合唱難點)",
+                "youtubeUrl": "https://youtu.be/6hs-62id8-k?si=IdNmPpLkZpEax1B8"
+        },
+        {
+                "title": "愛你的一切",
+                "singer": "林良歡",
+                "number": "弘音97870 (合唱)",
+                "youtubeUrl": "https://youtu.be/5rQDRVhEQHU?si=-xp1Ltch2nXyzgdV"
+        },
+        {
+                "title": "毋通忘記我",
+                "singer": "楊哲",
+                "number": "弘音97831 (好唱)",
+                "youtubeUrl": "https://youtu.be/z3q8Afsp-t8?si=KbbX-8_Zow4C72sm"
+        },
+        {
+                "title": "感情放一邊",
+                "singer": "江蕙",
+                "number": "弘86011 (好聽要學)",
+                "youtubeUrl": "https://youtu.be/ggCKF3zb-M8?si=JcMwsy7XouYodp_r"
+        },
+        {
+                "title": "醉人生",
+                "singer": "謝宜君",
+                "number": "弘97621 (難學點)",
+                "youtubeUrl": "https://youtu.be/VJHv8jLqFYY?si=2sPCutL1egZIuwUD"
+        },
+        {
+                "title": "嘸想你",
+                "singer": "向蕙玲",
+                "number": "家庭08922 (好唱)",
+                "youtubeUrl": "https://youtu.be/gOZU5BE2ZC0?si=TLDHpejwB4bU_9oT"
+        },
+        {
+                "title": "陳三五娘",
+                "singer": "胡嘉玲",
+                "number": "金24100 (郭金發的)",
+                "youtubeUrl": "https://youtu.be/7oqFpgiBHNI?si=QoiJu3sm3nNehbuc"
+        }
+];
+        // END_DEFAULT_SONGS
 
         // 系統變數
         let songDatabase = [];
@@ -880,19 +1739,48 @@
         let currentPlayingSong = null;
         let currentFilterCategory = "全部";
         let currentSortMode = "time"; // 'time' 或 'singer'
+        let isServerMode = false;
 
         // 初始化
-        window.addEventListener('DOMContentLoaded', () => {
-            loadDatabase();
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkServerMode();
+            await loadDatabase();
             renderSongList();
             updateQueuePanel();
             updateAdminStats();
         });
 
+        // 檢查伺服器模式
+        async function checkServerMode() {
+            try {
+                const response = await fetch('/api/songs');
+                if (response.ok) {
+                    isServerMode = true;
+                    console.log("偵測到本地伺服器，已啟用後端同步模式！");
+                    const syncSec = document.getElementById('gitSyncSection');
+                    if (syncSec) syncSec.style.display = 'block';
+                }
+            } catch (e) {
+                console.log("未偵測到本地伺服器，採用靜態 LocalStorage 模式。");
+            }
+        }
+
         // ==========================================
-        // 資料庫存取與管理 (支援 LocalStorage 永續保存)
+        // 資料庫存取與管理 (支援 LocalStorage 與後端 API)
         // ==========================================
-        function loadDatabase() {
+        async function loadDatabase() {
+            if (isServerMode) {
+                try {
+                    const response = await fetch('/api/songs');
+                    if (response.ok) {
+                        songDatabase = await response.json();
+                        return;
+                    }
+                } catch (e) {
+                    console.error("從伺服器讀取歌單失敗，降級使用 LocalStorage", e);
+                }
+            }
+
             const savedData = localStorage.getItem('mom_ktv_database');
             if (savedData) {
                 try {
@@ -906,18 +1794,148 @@
             }
         }
 
-        function saveToLocalStorage() {
+        async function saveToLocalStorage() {
+            if (isServerMode) {
+                try {
+                    const response = await fetch('/api/songs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(songDatabase)
+                    });
+                    if (response.ok) {
+                        updateAdminStats();
+                        return;
+                    }
+                } catch (e) {
+                    console.error("同步至伺服器失敗，將寫入 LocalStorage 作為備用備份", e);
+                }
+            }
             localStorage.setItem('mom_ktv_database', JSON.stringify(songDatabase));
             updateAdminStats();
         }
 
-        function resetDatabaseToDefault() {
+        async function resetDatabaseToDefault() {
             if (confirm("確定要清除自訂歌單，恢復到最一開始的初始歌單嗎？")) {
+                if (isServerMode) {
+                    try {
+                        const response = await fetch('/api/songs/reset', { method: 'POST' });
+                        if (response.ok) {
+                            const data = await response.json();
+                            songDatabase = data.songs;
+                            renderSongList();
+                            renderAdminSongList();
+                            updateAdminStats();
+                            showToast("已成功恢復初始歌單！");
+                            return;
+                        }
+                    } catch (e) {
+                        console.error("向伺服器請求重設失敗，將在本地重設", e);
+                    }
+                }
                 songDatabase = [...DEFAULT_SONGS];
-                saveToLocalStorage();
+                await saveToLocalStorage();
                 renderSongList();
                 renderAdminSongList();
                 showToast("已成功恢復初始歌單！");
+            }
+        }
+
+        // ==========================================
+        // 匯入與匯出備份功能
+        // ==========================================
+        function exportSongsJson() {
+            const dataStr = JSON.stringify(songDatabase, null, 4);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = 'mom_ktv_songs_backup.json';
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            showToast("歌單 JSON 已匯出下載！");
+        }
+
+        function triggerImportClick() {
+            document.getElementById('importFileInput').click();
+        }
+
+        function importSongsJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) {
+                        alert("匯入失敗：格式不正確，必須是 JSON 陣列。");
+                        return;
+                    }
+
+                    if (confirm(`已成功讀取到 ${imported.length} 首歌曲。確定要完全覆蓋目前點歌機的歌單嗎？(選「取消」則會將歌曲合併至現有歌單中)`)) {
+                        songDatabase = imported;
+                    } else {
+                        // 合併（以 youtubeUrl 排除重複）
+                        imported.forEach(newSong => {
+                            const exists = songDatabase.some(s => s.youtubeUrl === newSong.youtubeUrl);
+                            if (!exists) {
+                                songDatabase.push(newSong);
+                            }
+                        });
+                    }
+
+                    await saveToLocalStorage();
+                    renderSongList();
+                    renderAdminSongList();
+                    showToast("歌單匯入成功！");
+                } catch (err) {
+                    alert("解析 JSON 備份檔失敗：" + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // 清空選擇以便重複選擇同一檔案
+        }
+
+        // ==========================================
+        // 一鍵同步至 GitHub Pages
+        // ==========================================
+        async function syncToGithub() {
+            const btn = document.getElementById('gitSyncBtn');
+            const status = document.getElementById('gitSyncStatus');
+            
+            btn.disabled = true;
+            btn.innerText = "⏳ 正在同步中...";
+            status.innerText = "正在儲存變更並自動上傳 GitHub...";
+            status.style.color = "var(--info)";
+            
+            try {
+                const response = await fetch('/api/git-push', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    btn.innerText = "✅ 同步完成";
+                    status.innerText = "成功推送！約 1 分鐘後 GitHub Pages 生效。";
+                    status.style.color = "var(--success)";
+                    showToast("同步成功！已推送到 GitHub Pages。");
+                } else {
+                    btn.innerText = "❌ 同步失敗";
+                    status.innerText = data.error || "同步失敗";
+                    status.style.color = "var(--primary)";
+                    alert("同步失敗：" + (data.details || data.error));
+                }
+            } catch (e) {
+                btn.innerText = "❌ 同步失敗";
+                status.innerText = "連線後端伺服器異常";
+                status.style.color = "var(--primary)";
+                console.error("Git Push 失敗:", e);
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerText = "⚡ 一鍵同步至 GitHub Pages";
+                    status.innerText = "";
+                }, 5000);
             }
         }
 
@@ -940,7 +1958,9 @@
                 if (currentFilterCategory === "全部") return matchesSearch;
                 if (currentFilterCategory === "金") return matchesSearch && (song.number || '').startsWith("金");
                 if (currentFilterCategory === "音") return matchesSearch && (song.number || '').startsWith("音");
-                if (currentFilterCategory === "無") return matchesSearch && !(song.number || '').startsWith("金") && !(song.number || '').startsWith("音");
+                if (currentFilterCategory === "弘") return matchesSearch && (song.number || '').startsWith("弘");
+                if (currentFilterCategory === "投") return matchesSearch && (song.number || '').startsWith("投");
+                if (currentFilterCategory === "無") return matchesSearch && !(song.number || '').startsWith("金") && !(song.number || '').startsWith("音") && !(song.number || '').startsWith("弘") && !(song.number || '').startsWith("投");
                 
                 return matchesSearch;
             });
@@ -1027,7 +2047,8 @@
             // 更新 UI tabs
             const tabs = document.querySelectorAll('.filter-tab');
             tabs.forEach(tab => {
-                if (tab.innerText.includes(category) || (category === "無" && tab.innerText.includes("其他"))) {
+                const clickAttr = tab.getAttribute('onclick') || '';
+                if (clickAttr.includes(`'${category}'`)) {
                     tab.classList.add('active');
                 } else {
                     tab.classList.remove('active');
@@ -1134,7 +2155,9 @@
                 return;
             }
 
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const lines = text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 0 && !l.startsWith("範例：") && !l.startsWith("範例:"));
             const entries = [];
             
             // 1. 偵測並抽出每行中的時間戳記、URL與其餘內容
@@ -1145,6 +2168,10 @@
                 const timeStr = timeMatch ? timeMatch[0] : '';
                 
                 let cleanLine = line.replace(timeRegex, '').trim();
+                
+                // 清除發言人（例如：王林碧霞、媽媽、Mom）及其後方的空格
+                const senderRegex = /^(王林碧霞|媽媽|Mom)\s*/;
+                cleanLine = cleanLine.replace(senderRegex, '').trim();
                 
                 // 尋找網址
                 const urlRegex = /(https?:\/\/[^\s]+)/;
@@ -1193,11 +2220,17 @@
 
                     // 3. 從配對文字中解析「卡拉OK點歌機編號」
                     let number = '無編號';
-                    // 匹配如：金29763, 音12345, 金嗓29763, 音圓5566, 或單純 5 碼純數字
-                    const numRegex = /([金音紅綠黃藍]|金嗓|音圓)?\s*(\d{4,6})/;
+                    // 匹配如：金29763, 音12345, 金嗓29763, 音圓5566, 弘88413, 或單純 5 碼純數字
+                    const numRegex = /([金音紅綠黃藍弘]|金嗓|音圓|弘音)?\s*(\d{4,6})/;
                     const numMatch = metadataText.match(numRegex);
                     if (numMatch) {
-                        number = numMatch[0];
+                        number = numMatch[0].trim();
+                        if (number.startsWith("弘") && !number.startsWith("弘音")) {
+                            number = number.replace("弘", "弘音");
+                        }
+                        if (number.startsWith("金") && !number.startsWith("金嗓")) {
+                            number = number.replace("金", "金嗓");
+                        }
                         metadataText = metadataText.replace(numRegex, '').trim();
                     }
 
