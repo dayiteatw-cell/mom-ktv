@@ -898,6 +898,12 @@ https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
         // BEGIN_DEFAULT_SONGS
         const DEFAULT_SONGS = [
         {
+                "title": "愛到剖心肝",
+                "singer": "方千玉",
+                "number": "弘音95096",
+                "youtubeUrl": "https://www.youtube.com/watch?v=1vljgmcSziQ"
+        },
+        {
                 "title": "夢中思慕的人",
                 "singer": "張秀卿",
                 "number": "金嗓29763",
@@ -2303,6 +2309,11 @@ https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
                         title = "正在自動抓取標題...";
                     }
 
+                    const isSongKing = songUrl.includes('song.corp.com.tw') || songUrl.includes('song.tw-net.com') || songUrl.includes('/mv.aspx?id=');
+                    if (isSongKing) {
+                        singer = '正在自動抓取...';
+                        title = '正在自動抓取標題...';
+                    }
                     tempParsedSongs.push({
                         title: title,
                         singer: singer,
@@ -2339,6 +2350,163 @@ https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
             if (statusEl) {
                 statusEl.innerText = "⏳ 抓取網址中...";
                 statusEl.style.color = "var(--info)";
+            }
+
+            const numberInput = document.getElementById(`ip-num-${idx}`);
+            const urlInput = document.getElementById(`ip-url-${idx}`);
+
+            let urlToFetchForCheck = song.youtubeUrl;
+            const isSongKing = urlToFetchForCheck.includes('song.corp.com.tw') || urlToFetchForCheck.includes('song.tw-net.com') || urlToFetchForCheck.includes('/mv.aspx?id=');
+
+            if (isSongKing) {
+                let fetchedTitle = "";
+                let fetchedYoutubeUrl = "";
+                let fetchedNumber = "";
+
+                // 管道 1：本機伺服器模式，呼叫我們的後台 API
+                if (isServerMode) {
+                    try {
+                        const res = await fetch(`/api/parse-song-king?url=${encodeURIComponent(urlToFetchForCheck)}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            fetchedTitle = data.rawTitle;
+                            fetchedYoutubeUrl = data.youtubeUrl;
+                            fetchedNumber = data.songNumber;
+                        }
+                    } catch (e) {
+                        console.warn("後台點歌王解析失敗，嘗試靜態 CORS 代理...", e);
+                    }
+                }
+
+                // 管道 2：靜態模式/ fallback，呼叫 allorigins.win CORS 代理
+                if (!fetchedTitle) {
+                    try {
+                        const corsProxyUrl = `https://corsproxy.io/?${encodeURIComponent(urlToFetchForCheck)}`;
+                        const res = await fetch(corsProxyUrl);
+                        if (res.ok) {
+                            const html = await res.text();
+                            
+                            // 1) 解析標題 (支援換行)
+                            const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i);
+                            fetchedTitle = titleMatch ? titleMatch[1].trim() : '';
+
+                            // 2) 解析 YouTube URL (包含隱藏 input 匹配)
+                            const ytIdMatch = html.match(/(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/)?([a-zA-Z0-9_-]{11})/i);
+                            let youtubeId = ytIdMatch ? ytIdMatch[1] : null;
+                            if (!youtubeId) {
+                                const ytInputMatch = html.match(/youtubeID"[^>]*value="([a-zA-Z0-9_-]{11})"/i);
+                                if (ytInputMatch) {
+                                    youtubeId = ytInputMatch[1];
+                                }
+                            }
+                            if (youtubeId) {
+                                fetchedYoutubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
+                            }
+
+                            // 3) 解析歌號
+                            const songIdMatch = urlToFetchForCheck.match(/[?&]id=(\d+)/);
+                            if (songIdMatch && songIdMatch[1]) {
+                                const songId = songIdMatch[1];
+                                const codeApiUrl = `https://song.corp.com.tw/api/song.aspx?s=getCodeListByID&songDetailID=${songId}`;
+                                const codeProxyUrl = `https://corsproxy.io/?${encodeURIComponent(codeApiUrl)}`;
+                                try {
+                                    const codeRes = await fetch(codeProxyUrl);
+                                    if (codeRes.ok) {
+                                        const codeJsonStr = await codeRes.text();
+                                        const codes = JSON.parse(codeJsonStr);
+                                        if (Array.isArray(codes) && codes.length > 0) {
+                                            const formatNum = (item) => {
+                                                let prefix = item.company || '';
+                                                if (prefix.startsWith('弘音')) prefix = '弘音';
+                                                else if (prefix.startsWith('金嗓')) prefix = '金嗓';
+                                                else if (prefix.startsWith('音圓')) prefix = '音圓';
+                                                return `${prefix}${item.code}`;
+                                            };
+                                            const hongYin = codes.find(c => c.company && c.company.startsWith('弘音'));
+                                            if (hongYin) {
+                                                fetchedNumber = formatNum(hongYin);
+                                            } else {
+                                                const jinSang = codes.find(c => c.company && c.company.startsWith('金嗓'));
+                                                if (jinSang) {
+                                                    fetchedNumber = formatNum(jinSang);
+                                                } else {
+                                                    const yinYuan = codes.find(c => c.company && c.company.startsWith('音圓'));
+                                                    if (yinYuan) {
+                                                        fetchedNumber = formatNum(yinYuan);
+                                                    } else {
+                                                        fetchedNumber = formatNum(codes[0]);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("CorsProxy 抓取歌號失敗:", e);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("CORS proxy fetch failed:", e);
+                    }
+                }
+
+                if (fetchedTitle) {
+                    // 解析點歌王格式: "歌手-歌名 線上聽@台灣點歌王."
+                    // 1. 去除 `線上聽@` 及其後面的所有字串
+                    let cleanedTitle = fetchedTitle.replace(/\s*線上聽@.*$/, '').trim();
+                    let singer = '未知歌手';
+                    let songTitle = cleanedTitle;
+                    
+                    const parts = cleanedTitle.split('-');
+                    if (parts.length >= 2) {
+                        singer = parts[0].trim();
+                        const rest = parts.slice(1).join('-').trim();
+                        const spaceIdx = rest.indexOf(' ');
+                        if (spaceIdx !== -1) {
+                            songTitle = rest.substring(0, spaceIdx).trim();
+                        } else {
+                            songTitle = rest;
+                        }
+                    }
+
+                    // 更新暫存資料庫與介面
+                    tempParsedSongs[idx].title = songTitle;
+                    tempParsedSongs[idx].singer = singer;
+                    if (fetchedYoutubeUrl) {
+                        tempParsedSongs[idx].youtubeUrl = fetchedYoutubeUrl;
+                    }
+                    
+                    const isNoNumber = !song.number || song.number === '無編號' || song.number === '--';
+                    if (fetchedNumber && isNoNumber) {
+                        tempParsedSongs[idx].number = fetchedNumber;
+                    }
+
+                    if (singerInput) singerInput.value = singer;
+                    if (titleInput) titleInput.value = songTitle;
+                    if (fetchedYoutubeUrl && urlInput) urlInput.value = fetchedYoutubeUrl;
+                    if (fetchedNumber && numberInput && isNoNumber) {
+                        numberInput.value = fetchedNumber;
+                    }
+
+                    if (statusEl) {
+                        statusEl.innerText = "⚡ 解析成功";
+                        statusEl.style.color = "var(--success)";
+                    }
+                } else {
+                    if (statusEl) {
+                        statusEl.innerText = "❌ 抓取失敗";
+                        statusEl.style.color = "var(--primary)";
+                    }
+                    if (tempParsedSongs[idx].title === "正在自動抓取標題...") {
+                        tempParsedSongs[idx].title = "未知歌曲 (請手動輸入)";
+                        if (titleInput) titleInput.value = tempParsedSongs[idx].title;
+                    }
+                    if (tempParsedSongs[idx].singer === "正在自動抓取...") {
+                        tempParsedSongs[idx].singer = "未知歌手";
+                        if (singerInput) singerInput.value = tempParsedSongs[idx].singer;
+                    }
+                }
+                return;
             }
 
             // 轉化為標準 YouTube 播放網址
@@ -2461,7 +2629,7 @@ https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
                     <input type="text" class="ip-title" id="ip-title-${idx}" value="${song.title}" placeholder="歌名/備註" onchange="updateTempSong(${idx}, 'title', this.value)">
                     <span class="ip-status" id="ip-status-${idx}" style="font-size: 0.9rem; color: var(--info); font-weight: bold; min-width: 100px; display: inline-block;">⏳ 等待解析...</span>
                     <button class="preview-delete-btn" onclick="deleteTempSong(${idx})" title="刪除此首">🗑️</button>
-                    <input type="text" class="ip-url" value="${song.youtubeUrl}" placeholder="網址" onchange="updateTempSong(${idx}, 'youtubeUrl', this.value)">
+                    <input type="text" class="ip-url" id="ip-url-${idx}" value="${song.youtubeUrl}" placeholder="網址" onchange="updateTempSong(${idx}, 'youtubeUrl', this.value)">
                 `;
                 container.appendChild(item);
             });
@@ -2529,6 +2697,17 @@ https://youtu.be/3qOJapy7ujw?si=0MkfXS8pE4elXSI9
         // ==========================================
         function toggleAdminModal() {
             const modal = document.getElementById('adminModal');
+            const isOpen = modal.classList.contains('open');
+            if (!isOpen && !sessionStorage.getItem('isAdminAuthenticated')) {
+                const password = prompt("請輸入後台管理密碼：");
+                if (password !== "123") {
+                    if (password !== null) {
+                        alert("密碼錯誤！");
+                    }
+                    return;
+                }
+                sessionStorage.setItem('isAdminAuthenticated', 'true');
+            }
             modal.classList.toggle('open');
             if (modal.classList.contains('open')) {
                 updateAdminStats();

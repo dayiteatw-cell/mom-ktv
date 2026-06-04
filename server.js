@@ -3,6 +3,9 @@ const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
+const http = require('http');
+const https = require('https');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -131,6 +134,115 @@ app.post('/api/git-push', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: '同步作業失敗', details: err.message });
+    }
+});
+
+// 網路請求輔助函式，支援跳轉與二進位 Buffer/UTF8 讀取
+function fetchUrlContent(urlStr) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(urlStr);
+        const client = url.protocol === 'https:' ? https : http;
+        const options = {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        };
+        client.get(urlStr, options, (res) => {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                if (res.statusCode === 301 || res.statusCode === 302) {
+                    const redirectUrl = res.headers.location;
+                    if (redirectUrl) {
+                        const nextUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, urlStr).toString();
+                        return fetchUrlContent(nextUrl).then(resolve).catch(reject);
+                    }
+                }
+                return reject(new Error(`HTTP Status Code: ${res.statusCode}`));
+            }
+            let chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                resolve(buffer.toString('utf8'));
+            });
+        }).on('error', reject);
+    });
+}
+
+// 解析點歌王網頁與歌號 API
+app.get('/api/parse-song-king', async (req, res) => {
+    const { url } = req.query;
+    if (!url) {
+        return res.status(400).json({ error: '請提供 url 參數' });
+    }
+
+    try {
+        // 1. 抓取網頁內容
+        const html = await fetchUrlContent(url);
+
+        // 2. 解析標題 (支援換行並修剪空白)
+        const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i);
+        const rawTitle = titleMatch ? titleMatch[1].trim() : '';
+
+        // 3. 解析 YouTube 影片 ID (支援標準網址與隱藏 input)
+        const ytIdMatch = html.match(/(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/)?([a-zA-Z0-9_-]{11})/i);
+        let youtubeId = ytIdMatch ? ytIdMatch[1] : null;
+        if (!youtubeId) {
+            const ytInputMatch = html.match(/youtubeID"[^>]*value="([a-zA-Z0-9_-]{11})"/i);
+            if (ytInputMatch) {
+                youtubeId = ytInputMatch[1];
+            }
+        }
+        const youtubeUrl = youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : null;
+
+        // 4. 解析歌號
+        let songNumber = '無編號';
+        const songIdMatch = url.match(/[?&]id=(\d+)/);
+        if (songIdMatch && songIdMatch[1]) {
+            const songId = songIdMatch[1];
+            const codeApiUrl = `https://song.corp.com.tw/api/song.aspx?s=getCodeListByID&songDetailID=${songId}`;
+            try {
+                const codeJsonStr = await fetchUrlContent(codeApiUrl);
+                const codes = JSON.parse(codeJsonStr);
+                
+                if (Array.isArray(codes) && codes.length > 0) {
+                    // 格式化歌號函式
+                    const formatNum = (item) => {
+                        let prefix = item.company || '';
+                        if (prefix.startsWith('弘音')) prefix = '弘音';
+                        else if (prefix.startsWith('金嗓')) prefix = '金嗓';
+                        else if (prefix.startsWith('音圓')) prefix = '音圓';
+                        return `${prefix}${item.code}`;
+                    };
+
+                    const hongYin = codes.find(c => c.company && c.company.startsWith('弘音'));
+                    if (hongYin) {
+                        songNumber = formatNum(hongYin);
+                    } else {
+                        const jinSang = codes.find(c => c.company && c.company.startsWith('金嗓'));
+                        if (jinSang) {
+                            songNumber = formatNum(jinSang);
+                        } else {
+                            const yinYuan = codes.find(c => c.company && c.company.startsWith('音圓'));
+                            if (yinYuan) {
+                                songNumber = formatNum(yinYuan);
+                            } else {
+                                songNumber = formatNum(codes[0]);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('抓取歌號失敗:', err.message);
+            }
+        }
+
+        res.json({
+            rawTitle,
+            youtubeUrl,
+            songNumber
+        });
+    } catch (err) {
+        res.status(500).json({ error: '解析點歌王網址失敗', details: err.message });
     }
 });
 
